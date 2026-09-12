@@ -39,7 +39,16 @@ describe("technical API", () => {
     const response = await app.inject({ method: "GET", url: "/openapi.json" });
 
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toMatchObject({ info: { title: "PaceCraft API" } });
+    expect(response.json()).toMatchObject({
+      info: { title: "PaceCraft API" },
+      paths: {
+        "/health/ready": {
+          get: {
+            responses: { 503: { content: { "application/problem+json": {} } } },
+          },
+        },
+      },
+    });
   });
 
   test("uses Problem Details for unknown routes", async () => {

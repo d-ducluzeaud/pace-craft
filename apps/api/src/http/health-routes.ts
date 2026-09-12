@@ -21,7 +21,14 @@ export function createHealthRoutes(readinessProbe: ReadinessProbe): FastifyPlugi
       {
         schema: {
           tags: ["Health"],
-          response: { 200: healthStatusSchema, 503: problemDetailsSchema },
+          response: {
+            200: healthStatusSchema,
+            503: {
+              content: {
+                "application/problem+json": { schema: problemDetailsSchema },
+              },
+            },
+          },
         },
       },
       async (request, reply) => {

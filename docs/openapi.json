@@ -71,7 +71,7 @@
           "503": {
             "description": "Default Response",
             "content": {
-              "application/json": {
+              "application/problem+json": {
                 "schema": {
                   "type": "object",
                   "properties": {

@@ -26,5 +26,4 @@ jobs:
           image-ref: pacecraft-api:scan
           format: table
           severity: HIGH,CRITICAL
-          ignore-unfixed: true
           exit-code: "1"
