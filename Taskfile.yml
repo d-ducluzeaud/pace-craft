@@ -1,0 +1,109 @@
+version: "3.53.1"
+
+dotenv: [".env"]
+
+vars:
+  REQUIRED_BUN_VERSION: "1.4.2"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list
+
+  setup:
+    desc: Install locked dependencies and Git hooks
+    preconditions:
+      - sh: test "$(bun --version)" = "{{.REQUIRED_BUN_VERSION}}"
+        msg: Bun {{.REQUIRED_BUN_VERSION}} is required. Check which bun is first in PATH.
+    cmds:
+      - bun install --frozen-lockfile
+      - bunx lefthook install
+
+  check:
+    desc: Run all fast local quality gates
+    preconditions:
+      - sh: test "$(bun --version)" = "{{.REQUIRED_BUN_VERSION}}"
+        msg: Bun {{.REQUIRED_BUN_VERSION}} is required. Check which bun is first in PATH.
+    cmds:
+      - bun run check
+
+  dev:
+    desc: Run the API locally with file watching
+    preconditions:
+      - sh: test -f .env
+        msg: Copy .env.example to .env before running locally.
+    cmds:
+      - bun run dev
+
+  stack:up:
+    desc: Build and start the complete Docker stack
+    cmds:
+      - docker compose up --build --wait
+
+  stack:down:
+    desc: Stop the Docker stack without deleting data
+    cmds:
+      - docker compose down
+
+  stack:logs:
+    desc: Follow Docker stack logs
+    cmds:
+      - docker compose logs --follow
+
+  stack:build:
+    desc: Build all Docker images
+    cmds:
+      - docker compose build
+
+  test:unit:
+    desc: Run unit and in-process API tests
+    cmds:
+      - bun test apps/api/tests packages/contracts
+
+  test:integration:
+    desc: Run PostgreSQL integration tests
+    deps: [stack:up]
+    cmds:
+      - DATABASE_URL=postgresql://pacecraft:pacecraft@localhost:5432/pacecraft bun test apps/api/tests/database.integration.test.ts
+
+  test:api:
+    desc: Run API tests through Fastify injection
+    cmds:
+      - bun test apps/api/tests/app.test.ts
+
+  test:e2e:
+    desc: Run the Bruno collection against Docker
+    deps: [stack:up]
+    cmds:
+      - cd bruno && bunx bru run --env Local
+
+  db:generate:
+    desc: Generate SQL migrations from the Drizzle schema
+    requires:
+      vars: [DATABASE_URL]
+    cmds:
+      - bun run --filter @pacecraft/api db:generate
+
+  db:migrate:
+    desc: Apply committed SQL migrations
+    requires:
+      vars: [DATABASE_URL]
+    cmds:
+      - bun run --filter @pacecraft/api db:migrate
+
+  openapi:generate:
+    desc: Regenerate the committed OpenAPI document
+    cmds:
+      - bun run --filter @pacecraft/api openapi:generate
+
+  openapi:check:
+    desc: Fail when the committed OpenAPI document is stale
+    cmds:
+      - task: openapi:generate
+      - git diff --exit-code -- docs/openapi.json
+
+  bruno:
+    desc: Run Bruno against the running API
+    cmds:
+      - cd bruno && bunx bru run --env Local

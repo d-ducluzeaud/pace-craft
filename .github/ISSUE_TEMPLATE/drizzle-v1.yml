@@ -1,0 +1,16 @@
+name: Upgrade Drizzle to v1 stable
+description: Validate and adopt the stable Drizzle Bun SQL integration.
+title: "chore(db): upgrade Drizzle to v1 stable"
+labels: [dependencies, database]
+body:
+  - type: markdown
+    attributes: { value: "Read ADR 0001 before starting this upgrade." }
+  - type: checkboxes
+    attributes:
+      label: Acceptance criteria
+      options:
+        - { label: "ORM and Kit are upgraded together from the stable dist-tag.", required: true }
+        - { label: "Generated SQL and snapshots were compared before replacement.", required: true }
+        - { label: "Empty-database migrations and PostgreSQL integration tests pass.", required: true }
+        - { label: "Transaction, concurrency, date, and JSON behavior is verified.", required: true }
+        - { label: "ADR 0001 is updated with the outcome.", required: true }

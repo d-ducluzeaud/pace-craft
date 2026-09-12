@@ -1,0 +1,16 @@
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule: { interval: weekly }
+    groups:
+      bun: { patterns: ["@types/bun"] }
+      fastify: { patterns: ["fastify", "@fastify/*", "fastify-type-provider-zod"] }
+      drizzle: { patterns: ["drizzle-orm", "drizzle-kit"] }
+      commitlint: { patterns: ["@commitlint/*"] }
+  - package-ecosystem: docker
+    directory: /
+    schedule: { interval: weekly }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
