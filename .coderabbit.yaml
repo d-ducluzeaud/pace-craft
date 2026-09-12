@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+language: en-US
+
+reviews:
+  profile: assertive
+  request_changes_workflow: true
+  high_level_summary: true
+  poem: false
+  in_progress_fortune: false
+  enable_prompt_for_ai_agents: false
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    auto_pause_after_reviewed_commits: 10
+    drafts: false
+  finishing_touches:
+    docstrings:
+      enabled: false
+  pre_merge_checks:
+    docstrings:
+      mode: off
+    title:
+      mode: error
+      requirements: Use Conventional Commits format and keep the title concise.
+  path_filters:
+    - "!**/node_modules/**"
+    - "!**/coverage/**"
+    - "!**/dist/**"
+  path_instructions:
+    - path: "apps/api/src/**/*.ts"
+      instructions: |
+        Check runtime validation at HTTP boundaries, REST semantics, RFC 9457 responses,
+        graceful shutdown, and isolation of Fastify and persistence details from application code.
+        Reject speculative abstractions and business behavior added outside the learning exercise.
+    - path: "packages/contracts/src/**/*.ts"
+      instructions: |
+        Treat Zod schemas as runtime transport contracts. Check strict inference, backward
+        compatibility, and avoid coupling transport schemas to domain models.
+    - path: "apps/api/tests/**/*.ts"
+      instructions: |
+        Check observable behavior, failure paths, resource cleanup, and deterministic isolation.
+        Do not request tests that only duplicate static types or implementation details.
+    - path: "{Dockerfile,compose.yaml,.github/workflows/**}"
+      instructions: |
+        Check least privilege, local-only service exposure, pinned immutable dependencies,
+        reproducible builds, secret handling, health checks, and cleanup on failure.
