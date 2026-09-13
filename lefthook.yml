@@ -1,0 +1,18 @@
+pre-commit:
+  parallel: true
+  jobs:
+    - name: biome
+      glob: "*.{js,json,jsonc,mjs,ts,yaml,yml}"
+      run: bunx biome check --no-errors-on-unmatched {staged_files}
+
+commit-msg:
+  jobs:
+    - name: conventional-commit
+      run: bunx commitlint --edit {1}
+
+pre-push:
+  jobs:
+    - name: quality-gates
+      run: task check
+    - name: conventional-history
+      run: bunx commitlint --from origin/main --to HEAD --verbose
