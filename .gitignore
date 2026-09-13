@@ -1,3 +1,12 @@
+# Share project editor settings even when editors are ignored globally.
+!.zed/
+!.zed/settings.json
+!.zed/tasks.json
+!.vscode/
+!.vscode/settings.json
+!.vscode/extensions.json
+!.vscode/tasks.json
+
 # Logs
 logs
 *.log
