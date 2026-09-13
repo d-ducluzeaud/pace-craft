@@ -8,14 +8,17 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
-
+import type { ActivityWriter } from "./application/activities/activity-writer";
 import type { ReadinessProbe } from "./application/health/readiness-probe";
+import { createActivityRoutes } from "./http/activity-routes";
 import { createHealthRoutes } from "./http/health-routes";
 import { registerNotFoundHandler } from "./http/problem-details";
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   readinessProbe: ReadinessProbe;
+  activityWriter?: ActivityWriter;
+  developmentOwnerId?: string;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -35,7 +38,10 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         description: "REST API for endurance activity tracking.",
         version: "0.1.0",
       },
-      tags: [{ name: "Health", description: "Application health probes." }],
+      tags: [
+        { name: "Health", description: "Application health probes." },
+        { name: "Activities", description: "Completed multisport activities." },
+      ],
     },
     transform: jsonSchemaTransform,
   });
@@ -80,6 +86,12 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(createHealthRoutes(options.readinessProbe));
+  await app.register(
+    createActivityRoutes({
+      writer: options.activityWriter,
+      developmentOwnerId: options.developmentOwnerId,
+    }),
+  );
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 
   return app;
