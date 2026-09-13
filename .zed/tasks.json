@@ -1,0 +1,14 @@
+[
+  {
+    "label": "PaceCraft: check",
+    "command": "task",
+    "args": ["check"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  },
+  {
+    "label": "PaceCraft: test coverage",
+    "command": "bun",
+    "args": ["test", "--coverage"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]

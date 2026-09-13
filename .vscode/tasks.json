@@ -1,0 +1,25 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "PaceCraft: check",
+      "type": "process",
+      "command": "task",
+      "args": ["check"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "PaceCraft: test coverage",
+      "type": "process",
+      "command": "bun",
+      "args": ["test", "--coverage"],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+      "problemMatcher": []
+    }
+  ]
+}
