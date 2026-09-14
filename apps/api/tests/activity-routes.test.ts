@@ -1,6 +1,8 @@
 import { expect, mock, test } from "bun:test";
 import type { ProblemDetails } from "@pacecraft/contracts";
 import { buildApp } from "../src/app";
+import { resolveHistoryRange } from "../src/application/activities/activity-history";
+import type { ActivityFilters } from "../src/application/activities/activity-reader";
 import { loadEnvironment } from "../src/config";
 import type { CreateActivityInput } from "../src/domain/activity";
 
@@ -168,7 +170,12 @@ test.each(["running", "cycling", "swimming"] as const)(
     const app = await buildApp({
       readinessProbe,
       developmentOwnerId: ownerId,
-      activityReader: { findOwned },
+      activityReader: {
+        findOwned,
+        async listOwned() {
+          return [];
+        },
+      },
     });
     try {
       const response = await app.inject({
@@ -192,7 +199,12 @@ test.each(["not-a-uuid", "123", "019f3ed0000070008000000000000002"])(
     const app = await buildApp({
       readinessProbe,
       developmentOwnerId: ownerId,
-      activityReader: { findOwned },
+      activityReader: {
+        findOwned,
+        async listOwned() {
+          return [];
+        },
+      },
     });
     try {
       const response = await app.inject(`/activities/${invalidId}`);
@@ -218,6 +230,9 @@ test("GET returns a standard 404 when no owned activity exists", async () => {
       async findOwned() {
         return undefined;
       },
+      async listOwned() {
+        return [];
+      },
     },
   });
   try {
@@ -238,7 +253,16 @@ test("GET returns a standard 404 when no owned activity exists", async () => {
 
 test("GET is unavailable without server identity despite spoofed headers", async () => {
   const findOwned = mock(async () => undefined);
-  const app = await buildApp({ readinessProbe, activityReader: { findOwned } });
+  const app = await buildApp({
+    readinessProbe,
+    activityReader: {
+      findOwned,
+      async listOwned() {
+        return [];
+      },
+    },
+  });
+
   try {
     const response = await app.inject({
       url: `/activities/${id}`,
@@ -271,6 +295,9 @@ test("GET hides persistence failure details", async () => {
     activityReader: {
       async findOwned() {
         throw new Error("database secret");
+      },
+      async listOwned() {
+        return [];
       },
     },
   });
@@ -322,3 +349,141 @@ test("OpenAPI documents activity retrieval and every failure response", async ()
     await app.close();
   }
 });
+
+test.each([
+  "period=2y",
+  "period=",
+  "period=1m&from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+  "sport=football",
+  "sport=",
+  "sport=running&sport=cycling",
+  "ownerId=spoofed",
+  "from=bad&to=2020-02-01T00:00:00Z",
+  "from=2020-01-01T00:00:00",
+  "from=2020-01-01T00:00:00Z",
+  "to=2020-01-01T00:00:00Z",
+  "from=2020-01-02T00:00:00Z&to=2020-01-01T00:00:00Z",
+  "from=2020-01-01T00:00:00Z&to=2020-01-01T00:00:00Z",
+  "from=2020-01-01T00:00:00Z&to=2021-01-02T00:00:00Z",
+  "limit=0",
+  "limit=-1",
+  "limit=201",
+  "limit=1.5",
+  "limit=abc",
+  "limit=",
+  "limit=1&limit=2",
+])("history rejects invalid query %s before reading storage", async (query) => {
+  const listOwned = mock(async () => []);
+  const app = await buildApp({
+    readinessProbe,
+    developmentOwnerId: ownerId,
+    activityReader: { findOwned: mock(async () => undefined), listOwned },
+  });
+  try {
+    const response = await app.inject(`/activities?${query}`);
+    expect(response.statusCode).toBe(400);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json()).toMatchObject({
+      type: "about:blank",
+      title: "Bad Request",
+      status: 400,
+    });
+    expect(listOwned).not.toHaveBeenCalled();
+  } finally {
+    await app.close();
+  }
+});
+
+test("history resolves a bounded default window and ignores spoofed headers", async () => {
+  const listOwned = mock(async (_ownerId: string, _filters: ActivityFilters) => []);
+  const app = await buildApp({
+    readinessProbe,
+    developmentOwnerId: ownerId,
+    activityReader: { findOwned: mock(async () => undefined), listOwned },
+  });
+  try {
+    const before = new Date();
+    const response = await app.inject({ url: "/activities", headers: { "x-owner-id": "spoofed" } });
+    const after = new Date();
+    expect(response.statusCode).toBe(200);
+    expect(response.headers["x-has-more"]).toBe("false");
+    expect(listOwned).toHaveBeenCalledWith(ownerId, {
+      from: expect.any(Date),
+      to: expect.any(Date),
+      sport: undefined,
+      limit: 101,
+    });
+    const filters = listOwned.mock.calls[0]?.[1];
+    expect(filters).toBeDefined();
+    if (filters === undefined) throw new Error("Expected history call");
+    expect(filters.to.getTime()).toBeGreaterThanOrEqual(before.getTime());
+    expect(filters.to.getTime()).toBeLessThanOrEqual(after.getTime());
+    expect(filters.to.getTime() - filters.from.getTime()).toBeGreaterThanOrEqual(28 * 86_400_000);
+    expect(filters.to.getTime() - filters.from.getTime()).toBeLessThanOrEqual(31 * 86_400_000);
+  } finally {
+    await app.close();
+  }
+});
+
+test.each(["missing identity", "missing storage", "storage failure"])(
+  "history handles %s with a sanitized problem",
+  async (scenario) => {
+    const listOwned = mock(async () => {
+      throw new Error("database secret");
+    });
+    const app = await buildApp({
+      readinessProbe,
+      ...(scenario === "missing identity" ? {} : { developmentOwnerId: ownerId }),
+      ...(scenario === "missing storage"
+        ? {}
+        : {
+            activityReader: { findOwned: mock(async () => undefined), listOwned },
+          }),
+    });
+    try {
+      const response = await app.inject({ url: "/activities", headers: { "x-owner-id": ownerId } });
+      const status = scenario === "storage failure" ? 500 : 503;
+      expect(response.statusCode).toBe(status);
+      expect(response.headers["content-type"]).toContain("application/problem+json");
+      expect(response.json()).toMatchObject({
+        type: "about:blank",
+        status,
+        instance: "/activities",
+      });
+      expect(response.body).not.toContain("secret");
+      if (scenario !== "storage failure") expect(listOwned).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test.each(["1y", "6m", "3m", "1m", "1w", "today"] as const)(
+  "history routes period %s to a normalized date range",
+  async (period) => {
+    const listOwned = mock(async (_ownerId: string, _filters: ActivityFilters) => []);
+    const app = await buildApp({
+      readinessProbe,
+      developmentOwnerId: ownerId,
+      activityReader: { findOwned: mock(async () => undefined), listOwned },
+    });
+    try {
+      const response = await app.inject(`/activities?period=${period}&limit=200`);
+      expect(response.statusCode).toBe(200);
+      const filters = listOwned.mock.calls[0]?.[1];
+      expect(filters).toBeDefined();
+      if (filters === undefined) throw new Error("Expected history call");
+      expect(filters.limit).toBe(201);
+      if (period === "today") {
+        expect(filters.from.getUTCHours()).toBe(0);
+        expect(filters.to.getTime() - filters.from.getTime()).toBe(86_400_000);
+      } else {
+        const expected = resolveHistoryRange({ period }, filters.to);
+        if (expected === undefined) throw new Error("Expected a valid preset");
+        expect(filters.from).toEqual(expected.from);
+      }
+    } finally {
+      await app.close();
+    }
+  },
+);

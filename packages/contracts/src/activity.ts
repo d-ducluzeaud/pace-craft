@@ -104,3 +104,15 @@ export const activityResponseSchema = z
   .superRefine(validateMeasurements);
 
 export type ActivityResponse = z.infer<typeof activityResponseSchema>;
+
+export const listActivitiesQuerySchema = z.strictObject({
+  period: z.enum(["1y", "6m", "3m", "1m", "1w", "today"]).optional(),
+  sport: sportSchema.optional(),
+  from: activityBodyShape.startedAt.optional(),
+  to: activityBodyShape.startedAt.optional(),
+  limit: z
+    .string()
+    .regex(/^[1-9][0-9]*$/)
+    .pipe(z.coerce.number<string>().int().max(200))
+    .optional(),
+});
