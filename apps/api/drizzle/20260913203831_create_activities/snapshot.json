@@ -1,7 +1,7 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "0de464b4-222b-4e09-9dcf-fc3cccd8085f",
+  "id": "500d6fda-610e-483d-a547-d83b2ca043bd",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -256,6 +256,13 @@
     {
       "value": "\"average_swolf\" is null or\n    (\"sport\" = 'swimming' and \"average_swolf\" > 0 and \"average_swolf\" < 'Infinity'::float8)",
       "name": "activities_swolf",
+      "entityType": "checks",
+      "schema": "public",
+      "table": "activities"
+    },
+    {
+      "value": "\"duration_seconds\" <= extract(epoch from (\"created_at\" - \"started_at\"))",
+      "name": "activities_completed",
       "entityType": "checks",
       "schema": "public",
       "table": "activities"

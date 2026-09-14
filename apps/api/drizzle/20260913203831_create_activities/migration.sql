@@ -33,5 +33,6 @@ CREATE TABLE "activities" (
   )),
 	CONSTRAINT "activities_swolf" CHECK ("average_swolf" is null or
     ("sport" = 'swimming' and "average_swolf" > 0 and "average_swolf" < 'Infinity'::float8)),
+	CONSTRAINT "activities_completed" CHECK ("duration_seconds" <= extract(epoch from ("created_at" - "started_at"))),
 	CONSTRAINT "activities_timestamp_order" CHECK ("updated_at" >= "created_at")
 );

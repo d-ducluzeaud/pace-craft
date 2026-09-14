@@ -1,1 +1,0 @@
-ALTER TABLE "activities" ADD CONSTRAINT "activities_completed" CHECK ("duration_seconds" <= extract(epoch from ("created_at" - "started_at")));
