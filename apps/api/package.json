@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "auth:generate": "bunx --bun auth@1.7.4 generate --config ./scripts/auth-schema.config.ts --output ./src/infrastructure/database/schema/auth.ts --yes",
+    "auth:generate": "mkdir -p dist && bunx --bun auth@1.7.4 generate --config ./scripts/auth-schema.config.ts --output ./dist/auth-schema.ts --yes",
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
     "db:generate": "bunx --bun drizzle-kit generate",
     "db:migrate": "bunx --bun drizzle-kit migrate",

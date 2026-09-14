@@ -2,6 +2,33 @@ import { expect } from "bun:test";
 import { createDrizzleAuth } from "./drizzle-auth";
 import { databaseTest, withTestDatabase } from "./testing/test-database";
 
+databaseTest(
+  "PostgreSQL rejects case-insensitive email duplicates independently of Better Auth",
+  () =>
+    withTestDatabase(async ({ client }) => {
+      await client`
+      INSERT INTO "user" (name, email, created_at, updated_at)
+      VALUES ('Alice', 'Alice@Example.com', now(), now())
+    `;
+      await expect(
+        client`
+      INSERT INTO "user" (name, email, created_at, updated_at)
+      VALUES ('Duplicate', 'alice@example.com', now(), now())
+    `.execute(),
+      ).rejects.toMatchObject({ errno: "23505" });
+      const [bob] = await client`
+      INSERT INTO "user" (name, email, created_at, updated_at)
+      VALUES ('Bob', 'bob@example.com', now(), now()) RETURNING id
+    `;
+      await expect(
+        client`
+      UPDATE "user" SET email = 'ALICE@example.com' WHERE id = ${bob.id}::uuid
+    `.execute(),
+      ).rejects.toMatchObject({ errno: "23505" });
+      expect(await client`SELECT id FROM "user"`).toHaveLength(2);
+    }),
+);
+
 databaseTest("Better Auth persists credentials and sessions across instances", () =>
   withTestDatabase(async ({ client, databaseUrl }) => {
     const options = {

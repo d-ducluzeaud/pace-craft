@@ -57,10 +57,15 @@ revocation, repeated logout, session cookie behavior, and cross-account authoriz
 
 ## Schema maintenance
 
-Run `bun run --filter @pacecraft/api auth:generate` to regenerate the Drizzle schema from
-the pinned Better Auth CLI, then format it and run `task db:generate` with `DATABASE_URL`
-set. Review and commit the generated SQL migration and snapshot. The schema-generation
-configuration uses placeholders and does not connect to a runtime database.
+Run `bun run --filter @pacecraft/api auth:generate` to generate a candidate schema in
+`apps/api/dist/auth-schema.ts` using the pinned Better Auth CLI. Review and merge its changes
+into `src/infrastructure/database/schema/auth.ts`, preserving the custom unique index on
+`lower(email)`. That index enforces case-insensitive uniqueness even for direct database
+writes; the raw unique index also supports Better Auth's exact-email lookups. The generator
+does not overwrite this customization. A direct SQL regression test protects the invariant.
+Then format the schema and run `task db:generate` with `DATABASE_URL` set. Review and commit
+the generated SQL migration and snapshot. The schema-generation configuration uses
+placeholders and does not connect to a runtime database.
 
 ## References
 

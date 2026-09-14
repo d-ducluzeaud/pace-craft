@@ -9,12 +9,7 @@ const activityStore = createDrizzleActivityStore(environment.DATABASE_URL);
 const app = await buildApp({
   logger: {
     level: environment.LOG_LEVEL,
-    redact: [
-      "req.headers.cookie",
-      "req.headers.authorization",
-      "req.body.password",
-      "res.headers['set-cookie']",
-    ],
+    redact: ["req.headers.cookie", "req.headers.authorization", "res.headers['set-cookie']"],
   },
   ...(environment.BETTER_AUTH_URL === undefined || environment.BETTER_AUTH_SECRET === undefined
     ? {}
