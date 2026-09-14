@@ -1,0 +1,23 @@
+meta {
+  name: Retrieve invalid-id
+  type: http
+  seq: 8
+}
+
+get {
+  url: {{baseUrl}}/activities/not-a-uuid
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 400
+  res.body.status: eq 400
+  res.body.title: eq Bad Request
+}
+
+tests {
+  test("Returns problem details", function () {
+    expect(res.getHeader("content-type")).to.contain("application/problem+json");
+  });
+}

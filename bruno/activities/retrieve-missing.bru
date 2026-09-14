@@ -1,0 +1,23 @@
+meta {
+  name: Retrieve missing
+  type: http
+  seq: 9
+}
+
+get {
+  url: {{baseUrl}}/activities/019f3ed0-0000-7000-8000-000000000000
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 404
+  res.body.status: eq 404
+  res.body.title: eq Not Found
+}
+
+tests {
+  test("Returns problem details", function () {
+    expect(res.getHeader("content-type")).to.contain("application/problem+json");
+  });
+}

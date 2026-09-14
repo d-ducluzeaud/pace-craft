@@ -1,0 +1,22 @@
+meta {
+  name: Retrieve running
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/activities/{{runningActivity.id}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.sport: eq running
+}
+
+tests {
+  test("Returns the complete saved activity", function () {
+    expect(res.getBody()).to.deep.equal(bru.getVar("runningActivity"));
+  });
+}

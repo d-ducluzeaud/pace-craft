@@ -1,5 +1,6 @@
 export {
   type ActivityResponse,
+  activityParamsSchema,
   activityResponseSchema,
   type CreateActivityBody,
   createActivityBodySchema,

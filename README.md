@@ -1,7 +1,7 @@
 # PaceCraft
 
 PaceCraft is a REST API for tracking running, cycling, and swimming activities. It supports manual
-activity creation with runtime validation and PostgreSQL persistence in local development.
+activity creation and owner-scoped retrieval with runtime validation and PostgreSQL persistence in local development.
 
 ## Stack
 
@@ -140,7 +140,7 @@ If npm reports a root-owned cache, repair the ownership of the npm cache outside
 Do not run an unreviewed recursive `sudo` command copied from an error message. PaceCraft itself uses
 Bun and does not require npm for installation.
 
-## Create an activity locally
+## Create and retrieve an activity locally
 
 Run `task stack:up`, then open the `bruno` directory as a collection in Bruno and
 select the **Local** environment. The **activities** folder contains POST requests
@@ -148,7 +148,11 @@ for running, cycling, swimming, and an invalid-distance example. Run the collect
 from the terminal with `task bruno` (each successful POST creates a database row).
 
 `POST /activities` returns `201`, the saved activity, and a `Location` header.
-The corresponding GET endpoint is a separate backlog item. The OpenAPI contract
+`GET /activities/:id` returns `200` with the complete saved activity. A malformed
+UUID returns `400`; a missing activity or one owned by another athlete returns
+the same `404` problem response. Optional measurements are omitted when absent.
+The Bruno collection retrieves each created sport and checks malformed and missing IDs.
+The OpenAPI contract
 is available at <http://127.0.0.1:3000/docs>.
 
 An activity must have ended by its creation time (`startedAt + durationSeconds`).
@@ -156,7 +160,7 @@ An activity must have ended by its creation time (`startedAt + durationSeconds`)
 PostgreSQL generates UUIDv7 activity IDs and creation/update timestamps. The
 `activities.owner_id` UUID column is populated from `DEV_ATHLETE_ID` in local
 server configuration. The request cannot choose the owner. This development
-identity requires `NODE_ENV=development`; without an identity, creation returns
+identity requires `NODE_ENV=development`; without an identity, creation and retrieval return
 `503`. This indicates unavailable server configuration, not rejected client credentials.
 Compose binds the API to localhost. Replace this development identity with
 session authentication before public deployment. A foreign key to users will be
