@@ -7,6 +7,8 @@ services:
       target: runtime
     environment:
       DATABASE_URL: postgresql://pacecraft:pacecraft@postgres:5432/pacecraft
+      BETTER_AUTH_URL: ${BETTER_AUTH_URL:-}
+      BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       HOST: 0.0.0.0
       LOG_LEVEL: info
       PORT: 3000

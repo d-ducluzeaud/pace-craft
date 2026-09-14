@@ -12,8 +12,10 @@ import type { ActivityReader } from "./application/activities/activity-reader";
 import type { ActivityWriter } from "./application/activities/activity-writer";
 import type { ReadinessProbe } from "./application/health/readiness-probe";
 import { createActivityRoutes } from "./http/activity-routes";
+import { createAuthRoutes } from "./http/auth-routes";
 import { createHealthRoutes } from "./http/health-routes";
 import { registerNotFoundHandler } from "./http/problem-details";
+import type { createDrizzleAuth } from "./infrastructure/database/drizzle-auth";
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
@@ -21,6 +23,7 @@ export interface BuildAppOptions {
   activityWriter?: ActivityWriter;
   activityReader?: ActivityReader;
   developmentOwnerId?: string;
+  authentication?: ReturnType<typeof createDrizzleAuth>;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -32,6 +35,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   app.addHook("onClose", async () => options.readinessProbe.close?.());
+  app.addHook("onClose", async () => options.authentication?.close());
 
   await app.register(swagger, {
     openapi: {
@@ -43,6 +47,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       tags: [
         { name: "Health", description: "Application health probes." },
         { name: "Activities", description: "Completed multisport activities." },
+        { name: "Authentication", description: "Athlete registration and authentication." },
       ],
     },
     transform: jsonSchemaTransform,
@@ -115,6 +120,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(createHealthRoutes(options.readinessProbe));
+  await app.register(createAuthRoutes(options.authentication));
   await app.register(
     createActivityRoutes({
       writer: options.activityWriter,

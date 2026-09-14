@@ -27,6 +27,40 @@ task stack:up
 
 The API is available at `http://127.0.0.1:3000`, with documentation at `/docs`.
 
+## Athlete registration
+
+Set both values in your untracked `.env` to enable registration:
+
+```dotenv
+BETTER_AUTH_URL=http://127.0.0.1:3000
+BETTER_AUTH_SECRET=<generate with openssl rand -base64 32>
+```
+
+Use a random secret of at least 32 characters, shared across API instances. Use an HTTPS
+origin in production. Run generated migrations before starting the API; `task stack:up`
+does this automatically. With both settings empty, registration returns `503`.
+
+`POST /api/auth/sign-up/email` accepts `name` (1–100 characters after trimming), `email`
+(at most 254 characters), and `password` (8–128 characters, never trimmed). Unknown fields
+are rejected. Better Auth normalizes email case and PostgreSQL enforces uniqueness.
+New and existing emails both return `200` with `token: null`; an existing email gets a
+synthetic user. The response is not proof of account creation and sets no session cookie.
+Failures use `application/problem+json`.
+
+Registration permits five valid requests per client IP per minute, shared in PostgreSQL.
+Excess requests return `429` and `Retry-After`. Client-supplied IP headers are overwritten
+with Fastify's socket-derived IP; reverse-proxy trust needs explicit configuration before
+deploying behind a proxy. Better Auth origin/CSRF checks remain enabled. Its raw error
+arguments are excluded from logs because database errors may contain credential hashes.
+
+Run `task test:integration` for HTTP, concurrency, and storage checks. After enabling
+registration locally, `task test:e2e` also runs the Bruno auth requests. Repeated runs within
+one minute can hit the registration rate limit.
+
+Login, logout, and authenticated activity ownership are separate upcoming slices. Activity
+routes still use the development identity and this is not ready for public deployment.
+See [ADR 0002](docs/adr/0002-better-auth-postgresql.md) for the library decision and limitations.
+
 ## Editor setup
 
 Install [Zed](https://zed.dev/download) or [VS Code](https://code.visualstudio.com/download)
