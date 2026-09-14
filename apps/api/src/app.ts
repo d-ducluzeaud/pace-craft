@@ -44,6 +44,22 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
       ],
     },
     transform: jsonSchemaTransform,
+    transformObject: (document) => {
+      if (!("openapiObject" in document)) return document.swaggerObject;
+      const { openapiObject } = document;
+      const response = openapiObject.paths?.["/activities"]?.post?.responses?.["201"];
+      if (response && !("$ref" in response)) {
+        response.headers = {
+          ...response.headers,
+          Location: {
+            description: "URI of the created activity. Retrieval is a separate API capability.",
+            required: true,
+            schema: { type: "string", example: "/activities/019f3ed0-0000-7000-8000-000000000002" },
+          },
+        };
+      }
+      return openapiObject;
+    },
   });
 
   await app.register(swaggerUi, { routePrefix: "/docs" });

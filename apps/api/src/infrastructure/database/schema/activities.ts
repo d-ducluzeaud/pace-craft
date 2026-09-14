@@ -58,6 +58,10 @@ export const activities = pgTable(
       sql`${table.averageSwolf} is null or
     (${table.sport} = 'swimming' and ${table.averageSwolf} > 0 and ${table.averageSwolf} < 'Infinity'::float8)`,
     ),
+    check(
+      "activities_completed",
+      sql`${table.durationSeconds} <= extract(epoch from (${table.createdAt} - ${table.startedAt}))`,
+    ),
     check("activities_timestamp_order", sql`${table.updatedAt} >= ${table.createdAt}`),
   ],
 );

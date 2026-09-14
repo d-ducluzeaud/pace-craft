@@ -72,6 +72,7 @@ export type ActivityValidationError =
   | "invalid_started_at"
   | "invalid_distance"
   | "invalid_duration"
+  | "activity_not_completed"
   | "invalid_effort"
   | "invalid_heart_rate"
   | "invalid_power"

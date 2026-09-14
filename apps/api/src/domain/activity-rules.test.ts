@@ -33,6 +33,17 @@ describe("validateActivity", () => {
     });
   });
 
+  test.each([
+    { durationSeconds: 3599, ok: true },
+    { durationSeconds: 3600, ok: true },
+    { durationSeconds: 3601, ok: false },
+  ])("completion boundary: $durationSeconds seconds returns $ok", ({ durationSeconds, ok }) => {
+    const activity = { ...input, durationSeconds };
+    expect(validateActivity(activity, now)).toEqual(
+      ok ? { ok: true, value: activity } : { ok: false, error: "activity_not_completed" },
+    );
+  });
+
   test("reports invalid_distance for zero distance", () => {
     expect(validateActivity({ ...input, distanceMeters: 0 }, now)).toEqual({
       ok: false,
@@ -186,6 +197,8 @@ describe("isPositiveInteger", () => {
   test.each([
     { value: 1, expected: true },
     { value: 15, expected: true },
+    { value: Number.MAX_SAFE_INTEGER, expected: true },
+    { value: Number.MAX_SAFE_INTEGER + 1, expected: false },
     { value: 0, expected: false },
     { value: -1, expected: false },
     { value: 12.5, expected: false },

@@ -53,6 +53,7 @@ test.each(["running", "cycling", "swimming"])(
 
 test.each([
   ["negative distance", { distanceMeters: -100 }],
+  ["unfinished activity", { startedAt: new Date(Date.now() - 1000).toISOString() }],
   ["future date", { startedAt: "2999-01-01T00:00:00Z" }],
   ["UTC year zero", { startedAt: "0000-01-01T00:00:00Z" }],
   ["timezone offset crossing into year zero", { startedAt: "0001-01-01T00:00:00+02:00" }],
@@ -80,7 +81,7 @@ test.each([
   }
 });
 
-test("POST requires server identity and ignores spoofed identity headers", async () => {
+test("POST is unavailable without server identity and ignores spoofed identity headers", async () => {
   const write = create();
   const app = await buildApp({ readinessProbe, activityWriter: { create: write } });
   try {
@@ -90,7 +91,7 @@ test("POST requires server identity and ignores spoofed identity headers", async
       payload: body,
       headers: { "x-owner-id": ownerId },
     });
-    expect(response.statusCode).toBe(401);
+    expect(response.statusCode).toBe(503);
     expect(write).not.toHaveBeenCalled();
   } finally {
     await app.close();
@@ -121,4 +122,24 @@ test("development identity cannot be enabled in production", () => {
   expect(() => loadEnvironment(environment)).toThrow();
   expect(() => loadEnvironment({ ...environment, NODE_ENV: "production" })).toThrow();
   expect(loadEnvironment({ ...environment, NODE_ENV: "development" }).DEV_ATHLETE_ID).toBe(ownerId);
+});
+
+test("OpenAPI documents the created resource location", async () => {
+  const app = await buildApp({ readinessProbe });
+  try {
+    await app.ready();
+    expect(app.swagger()).toMatchObject({
+      paths: {
+        "/activities": {
+          post: {
+            responses: {
+              "201": { headers: { Location: { required: true, schema: { type: "string" } } } },
+            },
+          },
+        },
+      },
+    });
+  } finally {
+    await app.close();
+  }
 });

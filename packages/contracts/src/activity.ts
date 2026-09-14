@@ -39,50 +39,51 @@ const swimmingActivityBodySchema = z.strictObject({
   averageSwolf: z.number().positive().optional(),
 });
 
-export const createActivityBodySchema = z
-  .discriminatedUnion("sport", [
-    runningActivityBodySchema,
-    cyclingActivityBodySchema,
-    swimmingActivityBodySchema,
-  ])
-  .superRefine((body, ctx) => {
-    const { averageHeartRate, maxHeartRate } = body;
-    if ((averageHeartRate === undefined) !== (maxHeartRate === undefined)) {
+const activityBodySchema = z.discriminatedUnion("sport", [
+  runningActivityBodySchema,
+  cyclingActivityBodySchema,
+  swimmingActivityBodySchema,
+]);
+
+function validateMeasurements(body: z.infer<typeof activityBodySchema>, ctx: z.RefinementCtx) {
+  const { averageHeartRate, maxHeartRate } = body;
+  if ((averageHeartRate === undefined) !== (maxHeartRate === undefined)) {
+    ctx.addIssue({
+      code: "custom",
+      path: [averageHeartRate === undefined ? "averageHeartRate" : "maxHeartRate"],
+      message: "Average and maximum heart rate must be provided together.",
+    });
+  } else if (
+    averageHeartRate !== undefined &&
+    maxHeartRate !== undefined &&
+    averageHeartRate > maxHeartRate
+  ) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["averageHeartRate"],
+      message: "Average heart rate must not exceed maximum heart rate.",
+    });
+  }
+
+  if (body.sport !== "swimming") {
+    const { averagePower, maxPower } = body;
+    if ((averagePower === undefined) !== (maxPower === undefined)) {
       ctx.addIssue({
         code: "custom",
-        path: [averageHeartRate === undefined ? "averageHeartRate" : "maxHeartRate"],
-        message: "Average and maximum heart rate must be provided together.",
+        path: [averagePower === undefined ? "averagePower" : "maxPower"],
+        message: "Average and maximum power must be provided together.",
       });
-    } else if (
-      averageHeartRate !== undefined &&
-      maxHeartRate !== undefined &&
-      averageHeartRate > maxHeartRate
-    ) {
+    } else if (averagePower !== undefined && maxPower !== undefined && averagePower > maxPower) {
       ctx.addIssue({
         code: "custom",
-        path: ["averageHeartRate"],
-        message: "Average heart rate must not exceed maximum heart rate.",
+        path: ["averagePower"],
+        message: "Average power must not exceed maximum power.",
       });
     }
+  }
+}
 
-    if (body.sport !== "swimming") {
-      const { averagePower, maxPower } = body;
-      if ((averagePower === undefined) !== (maxPower === undefined)) {
-        ctx.addIssue({
-          code: "custom",
-          path: [averagePower === undefined ? "averagePower" : "maxPower"],
-          message: "Average and maximum power must be provided together.",
-        });
-      } else if (averagePower !== undefined && maxPower !== undefined && averagePower > maxPower) {
-        ctx.addIssue({
-          code: "custom",
-          path: ["averagePower"],
-          message: "Average power must not exceed maximum power.",
-        });
-      }
-    }
-  });
-
+export const createActivityBodySchema = activityBodySchema.superRefine(validateMeasurements);
 export type CreateActivityBody = z.infer<typeof createActivityBodySchema>;
 
 const generatedActivityShape = {
@@ -92,10 +93,12 @@ const generatedActivityShape = {
   updatedAt: z.iso.datetime({ offset: true }),
 };
 
-export const activityResponseSchema = z.discriminatedUnion("sport", [
-  runningActivityBodySchema.extend(generatedActivityShape),
-  cyclingActivityBodySchema.extend(generatedActivityShape),
-  swimmingActivityBodySchema.extend(generatedActivityShape),
-]);
+export const activityResponseSchema = z
+  .discriminatedUnion("sport", [
+    runningActivityBodySchema.extend(generatedActivityShape),
+    cyclingActivityBodySchema.extend(generatedActivityShape),
+    swimmingActivityBodySchema.extend(generatedActivityShape),
+  ])
+  .superRefine(validateMeasurements);
 
 export type ActivityResponse = z.infer<typeof activityResponseSchema>;

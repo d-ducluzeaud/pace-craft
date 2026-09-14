@@ -39,6 +39,9 @@ databaseTest(
         expect(row.average_power).toBe(sport === "swimming" ? null : 180);
       }
       await expect(
+        writer.create({ ...base, sport: "running", startedAt: new Date(Date.now() - 1000) }),
+      ).rejects.toThrow();
+      await expect(
         writer.create({ ...base, sport: "running", distanceMeters: -100 }),
       ).rejects.toThrow();
       await expect(

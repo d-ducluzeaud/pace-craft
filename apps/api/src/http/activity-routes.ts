@@ -25,18 +25,17 @@ export function createActivityRoutes(options: {
           response: {
             201: activityResponseSchema,
             400: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
-            401: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
             500: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
             503: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
           },
         },
         onRequest: async (request, reply) => {
           if (options.developmentOwnerId === undefined) {
-            return reply.status(401).type("application/problem+json").send({
+            return reply.status(503).type("application/problem+json").send({
               type: "about:blank",
-              title: "Unauthorized",
-              status: 401,
-              detail: "An authenticated identity is required.",
+              title: "Service Unavailable",
+              status: 503,
+              detail: "Activity creation is disabled until a server identity is configured.",
               instance: request.url,
             });
           }

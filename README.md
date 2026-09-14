@@ -120,11 +120,14 @@ from the terminal with `task bruno` (each successful POST creates a database row
 The corresponding GET endpoint is a separate backlog item. The OpenAPI contract
 is available at <http://127.0.0.1:3000/docs>.
 
+An activity must have ended by its creation time (`startedAt + durationSeconds`).
+
 PostgreSQL generates UUIDv7 activity IDs and creation/update timestamps. The
 `activities.owner_id` UUID column is populated from `DEV_ATHLETE_ID` in local
 server configuration. The request cannot choose the owner. This development
 identity requires `NODE_ENV=development`; without an identity, creation returns
-`401`. Compose binds the API to localhost. Replace this development identity with
+`503`. This indicates unavailable server configuration, not rejected client credentials.
+Compose binds the API to localhost. Replace this development identity with
 session authentication before public deployment. A foreign key to users will be
 added when the authentication schema exists.
 

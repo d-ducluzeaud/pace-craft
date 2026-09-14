@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { createActivityBodySchema } from "@pacecraft/contracts";
+import { activityResponseSchema, createActivityBodySchema } from "@pacecraft/contracts";
 
 const requiredFacts = {
   startedAt: "2026-09-12T14:00:00Z",
@@ -153,4 +153,28 @@ describe("createActivityBodySchema", () => {
       ).toBe(false);
     },
   );
+});
+
+describe("activityResponseSchema", () => {
+  const generated = {
+    id: "019f3ed0-0000-7000-8000-000000000001",
+    ownerId: "019f3ed0-0000-7000-8000-000000000002",
+    createdAt: "2026-09-13T12:00:00Z",
+    updatedAt: "2026-09-13T12:00:00Z",
+  };
+  test.each([
+    { label: "incomplete heart rate", fields: { averageHeartRate: 150 } },
+    { label: "reversed heart rate", fields: { averageHeartRate: 180, maxHeartRate: 150 } },
+    { label: "incomplete power", fields: { averagePower: 180 } },
+    { label: "reversed power", fields: { averagePower: 300, maxPower: 180 } },
+  ])("rejects $label in a server response", ({ fields }) => {
+    expect(
+      activityResponseSchema.safeParse({
+        ...requiredFacts,
+        ...generated,
+        sport: "running",
+        ...fields,
+      }).success,
+    ).toBe(false);
+  });
 });

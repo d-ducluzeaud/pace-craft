@@ -5,7 +5,7 @@ export function isActivityInPast(startedAt: Date, now: Date) {
 }
 
 export function isPositiveInteger(value: number) {
-  return Number.isInteger(value) && value > 0;
+  return Number.isSafeInteger(value) && value > 0;
 }
 
 export function isValidEffort(effort: number) {
@@ -28,6 +28,10 @@ export function validateActivity(input: CreateActivityInput, now: Date): Activit
   }
   if (!isPositiveInteger(input.durationSeconds)) {
     return { ok: false, error: "invalid_duration" };
+  }
+
+  if (input.durationSeconds > (now.getTime() - input.startedAt.getTime()) / 1000) {
+    return { ok: false, error: "activity_not_completed" };
   }
 
   if (input.effort !== undefined && !isValidEffort(input.effort)) {
