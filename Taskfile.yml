@@ -59,7 +59,7 @@ tasks:
   test:unit:
     desc: Run unit and in-process API tests
     cmds:
-      - bun test apps/api/tests apps/api/src/domain packages/contracts
+      - bun test --path-ignore-patterns "**/*.integration.test.ts" apps/api/tests apps/api/src/domain packages/contracts
 
   test:integration:
     desc: Run PostgreSQL integration tests
