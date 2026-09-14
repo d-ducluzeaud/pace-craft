@@ -62,10 +62,17 @@ tasks:
       - bun test --path-ignore-patterns "**/*.integration.test.ts" apps/api/tests apps/api/src/domain packages/contracts
 
   test:integration:
-    desc: Run PostgreSQL integration tests
-    deps: [stack:up]
+    desc: Run concurrent integration tests in isolated PostgreSQL databases
+    env:
+      TEST_DATABASE_ADMIN_URL: '{{.TEST_DATABASE_ADMIN_URL | default "postgresql://pacecraft_test:pacecraft_test@127.0.0.1:5434/postgres"}}'
     cmds:
-      - DATABASE_URL=postgresql://pacecraft:pacecraft@127.0.0.1:5433/pacecraft bun test apps/api/tests/database.integration.test.ts apps/api/src/infrastructure/database/activity.integration.test.ts
+      - docker compose -f compose.test.yaml up --wait
+      - bun test apps/api/tests/database.integration.test.ts apps/api/src/infrastructure/database --max-concurrency 4
+
+  test:integration:down:
+    desc: Remove the dedicated test container and all remaining temporary databases
+    cmds:
+      - docker compose -f compose.test.yaml down --volumes
 
   test:api:
     desc: Run API tests through Fastify injection

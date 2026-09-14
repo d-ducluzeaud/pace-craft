@@ -94,6 +94,37 @@ task test:e2e
 task openapi:check
 ```
 
+### Isolated PostgreSQL integration tests
+
+`task test:integration` starts a dedicated PostgreSQL container on `127.0.0.1:5434` and runs integration tests concurrently (up to four
+per file). Each test gets a fresh `pacecraft_test_<uuid>` database with the committed Drizzle
+migrations applied. Fixtures are inserted only when requested with `insertActivityFixture`;
+the owner is explicit and other activity facts have stable defaults. No fixture calls the
+production creation endpoint or writer.
+
+`withTestDatabase` owns the database lifecycle through `try/finally`: it closes its connection
+and drops only its generated database, including after a failed scenario. Tests close their
+own application and adapter connections before returning. A fresh database provides the clean
+starting state; dropping it replaces shared `TRUNCATE` cleanup and permits overlapping tests
+and independent test runs without deleting each other's data. No production adapter changes
+are needed for this isolation.
+
+The test container uses the same pinned PostgreSQL image as CI and stores its data in tmpfs.
+It has its own Compose project, credentials, and port; the development stack and its persistent
+volume are untouched. CPU and memory still share the local Docker host.
+
+The task defaults to the test container's maintenance database. To use another test server,
+set `TEST_DATABASE_ADMIN_URL` to its connection URL; its role needs `CREATEDB` and permission
+to drop the databases it creates. `DATABASE_URL` is never used by the integration harness.
+Leave `TEST_DATABASE_ADMIN_URL` unset for fast checks that skip integration tests. CI enables
+it explicitly for the integration step.
+
+A forcibly terminated process can leave a database behind; future runs use new UUID names.
+Run `task test:integration:down` after all test runs have stopped to remove the test container
+and any leftover databases. Do not tear down the container while another run is active. Applying migrations per test
+has a setup cost; consider per-worker reuse only if measurements justify weakening per-test
+isolation.
+
 Atomic JavaScript commands remain in the workspace manifests. Task only coordinates multi-tool
 workflows such as Docker, database migrations, OpenAPI, and Bruno.
 
