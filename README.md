@@ -201,7 +201,7 @@ the target month. A week is seven days. `today` means the UTC calendar day
 `[00:00, next 00:00)`, not the athlete's local timezone.
 
 Alternatively, supply both `from` and `to` as ISO timestamps with a timezone:
-`from` is inclusive and `to` exclusive, with `from < to` and a maximum span of
+Bounds support at most millisecond precision. `from` is inclusive and `to` exclusive, with `from < to` and a maximum span of
 366 days. Do not combine explicit dates with `period`. For example:
 
 ```text
@@ -211,13 +211,15 @@ Alternatively, supply both `from` and `to` as ISO timestamps with a timezone:
 
 URL-encode a positive offset's `+` as `%2B`. `limit` is a positive decimal integer,
 default 100, maximum 200. The response header `X-Has-More: true` means additional
-matches were omitted. Narrow the date range when this happens; cursor pagination
-is a separate feature. The server fetches at most `limit + 1` rows. Empty results
+matches were omitted. Narrowing the date range may help, but cannot retrieve all
+results when more than the limit share one timestamp. Complete traversal requires
+the separate cursor pagination feature. The server fetches at most `limit + 1` rows. Empty results
 return `200` with `[]` and `X-Has-More: false`.
 
 Invalid or unknown filters return RFC 9457 `400` errors before storage access.
 Missing development identity or storage returns `503`; unexpected storage errors
 return a sanitized `500`. SQL always combines ownership with date and sport filters.
 The result cap bounds transfer and application memory, not PostgreSQL scan/sort
-work. Evaluate query plans on representative data before selecting additional
-indexes. No schema migration is needed for this endpoint.
+work. The generated migration adds `(owner_id, started_at DESC, id DESC)` for
+owner-scoped range scans and ordering. Sport is a residual filter; evaluate query
+plans on representative data before adding a sport-specific index.

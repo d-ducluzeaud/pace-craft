@@ -105,11 +105,16 @@ export const activityResponseSchema = z
 
 export type ActivityResponse = z.infer<typeof activityResponseSchema>;
 
+const historyDateSchema = activityBodyShape.startedAt.refine(
+  (value) => !/\.\d{4}/.test(value),
+  "History bounds support at most millisecond precision.",
+);
+
 export const listActivitiesQuerySchema = z.strictObject({
   period: z.enum(["1y", "6m", "3m", "1m", "1w", "today"]).optional(),
   sport: sportSchema.optional(),
-  from: activityBodyShape.startedAt.optional(),
-  to: activityBodyShape.startedAt.optional(),
+  from: historyDateSchema.optional(),
+  to: historyDateSchema.optional(),
   limit: z
     .string()
     .regex(/^[1-9][0-9]*$/)

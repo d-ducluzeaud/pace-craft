@@ -65,7 +65,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         history.headers = {
           "X-Has-More": {
             description:
-              "True when more matches exist beyond the requested limit. Narrow the date range to retrieve them.",
+              "True when matches were omitted. Complete traversal requires future cursor pagination; date ranges cannot separate equal timestamps.",
             required: true,
             schema: { type: "boolean" },
           },

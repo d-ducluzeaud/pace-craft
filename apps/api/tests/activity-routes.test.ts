@@ -351,6 +351,8 @@ test("OpenAPI documents activity retrieval and every failure response", async ()
 });
 
 test.each([
+  "from=2020-01-01T00:00:00.0009Z&to=2020-02-01T00:00:00Z",
+  "from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00.0009Z",
   "period=2y",
   "period=",
   "period=1m&from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",

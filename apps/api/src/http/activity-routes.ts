@@ -28,7 +28,7 @@ export function createActivityRoutes(options: {
           tags: ["Activities"],
           summary: "List owned activity history",
           description:
-            "Local development only: server-owned history ordered by startedAt DESC, id DESC. Supply both from (inclusive) and to (exclusive), at most 366 days apart; omit both to use period (1y, 6m, 3m, 1m, 1w, today; default 1m). Period and explicit dates are mutually exclusive. Months/years are calendar intervals with month-end clamping; today is the UTC calendar day. ISO timestamps require an offset. Limit defaults to 100, maximum 200. X-Has-More indicates additional matches; narrow the range to retrieve them. Empty results return []. Unknown filters are rejected.",
+            "Local development only: server-owned history ordered by startedAt DESC, id DESC. Supply both from (inclusive) and to (exclusive), at most 366 days apart; omit both to use period (1y, 6m, 3m, 1m, 1w, today; default 1m). Period and explicit dates are mutually exclusive. Months/years are calendar intervals with month-end clamping; today is the UTC calendar day. ISO timestamps require an offset and at most millisecond precision. Limit defaults to 100, maximum 200. X-Has-More indicates omitted matches. Complete traversal is not supported: narrowing dates cannot separate activities sharing a timestamp. Empty results return []. Unknown filters are rejected.",
           querystring: listActivitiesQuerySchema,
           response: {
             200: activityResponseSchema.array(),
