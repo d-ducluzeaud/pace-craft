@@ -1,0 +1,39 @@
+meta {
+  name: Create running
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/activities
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "sport": "running",
+    "startedAt": "2026-01-01T10:00:00+01:00",
+    "durationSeconds": 1800,
+    "distanceMeters": 1000,
+    "effort": 5,
+    "averageHeartRate": 140,
+    "maxHeartRate": 170,
+    "averagePower": 180,
+    "maxPower": 300
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.sport: eq running
+}
+
+tests {
+  test("Database generates identity and timestamps", function () {
+    const activity = res.getBody();
+    expect(activity.id).to.match(/^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+    expect(activity.createdAt).to.equal(activity.updatedAt);
+    expect(res.getHeader("location")).to.equal("/activities/" + activity.id);
+  });
+}

@@ -8,14 +8,17 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
-
+import type { ActivityWriter } from "./application/activities/activity-writer";
 import type { ReadinessProbe } from "./application/health/readiness-probe";
+import { createActivityRoutes } from "./http/activity-routes";
 import { createHealthRoutes } from "./http/health-routes";
 import { registerNotFoundHandler } from "./http/problem-details";
 
 export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   readinessProbe: ReadinessProbe;
+  activityWriter?: ActivityWriter;
+  developmentOwnerId?: string;
 }
 
 export async function buildApp(options: BuildAppOptions): Promise<FastifyInstance> {
@@ -35,9 +38,28 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         description: "REST API for endurance activity tracking.",
         version: "0.1.0",
       },
-      tags: [{ name: "Health", description: "Application health probes." }],
+      tags: [
+        { name: "Health", description: "Application health probes." },
+        { name: "Activities", description: "Completed multisport activities." },
+      ],
     },
     transform: jsonSchemaTransform,
+    transformObject: (document) => {
+      if (!("openapiObject" in document)) return document.swaggerObject;
+      const { openapiObject } = document;
+      const response = openapiObject.paths?.["/activities"]?.post?.responses?.["201"];
+      if (response && !("$ref" in response)) {
+        response.headers = {
+          ...response.headers,
+          Location: {
+            description: "URI of the created activity. Retrieval is a separate API capability.",
+            required: true,
+            schema: { type: "string", example: "/activities/019f3ed0-0000-7000-8000-000000000002" },
+          },
+        };
+      }
+      return openapiObject;
+    },
   });
 
   await app.register(swaggerUi, { routePrefix: "/docs" });
@@ -80,6 +102,12 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   });
 
   await app.register(createHealthRoutes(options.readinessProbe));
+  await app.register(
+    createActivityRoutes({
+      writer: options.activityWriter,
+      developmentOwnerId: options.developmentOwnerId,
+    }),
+  );
   app.get("/openapi.json", { schema: { hide: true } }, async () => app.swagger());
 
   return app;

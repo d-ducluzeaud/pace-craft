@@ -1,7 +1,7 @@
 # PaceCraft
 
-PaceCraft is a REST API for tracking running, cycling, and swimming activities. The repository is
-currently establishing a reproducible backend platform before introducing domain features.
+PaceCraft is a REST API for tracking running, cycling, and swimming activities. It supports manual
+activity creation with runtime validation and PostgreSQL persistence in local development.
 
 ## Stack
 
@@ -25,7 +25,7 @@ task setup
 task stack:up
 ```
 
-The API is available at `http://localhost:3000`, with documentation at `/docs`.
+The API is available at `http://127.0.0.1:3000`, with documentation at `/docs`.
 
 ## Editor setup
 
@@ -108,3 +108,48 @@ independent, while Fastify and Drizzle/Bun SQL live in adapters. See
 If npm reports a root-owned cache, repair the ownership of the npm cache outside this repository.
 Do not run an unreviewed recursive `sudo` command copied from an error message. PaceCraft itself uses
 Bun and does not require npm for installation.
+
+## Create an activity locally
+
+Run `task stack:up`, then open the `bruno` directory as a collection in Bruno and
+select the **Local** environment. The **activities** folder contains POST requests
+for running, cycling, swimming, and an invalid-distance example. Run the collection
+from the terminal with `task bruno` (each successful POST creates a database row).
+
+`POST /activities` returns `201`, the saved activity, and a `Location` header.
+The corresponding GET endpoint is a separate backlog item. The OpenAPI contract
+is available at <http://127.0.0.1:3000/docs>.
+
+An activity must have ended by its creation time (`startedAt + durationSeconds`).
+
+PostgreSQL generates UUIDv7 activity IDs and creation/update timestamps. The
+`activities.owner_id` UUID column is populated from `DEV_ATHLETE_ID` in local
+server configuration. The request cannot choose the owner. This development
+identity requires `NODE_ENV=development`; without an identity, creation returns
+`503`. This indicates unavailable server configuration, not rejected client credentials.
+Compose binds the API to localhost. Replace this development identity with
+session authentication before public deployment. A foreign key to users will be
+added when the authentication schema exists.
+
+Compose applies the generated SQL migration automatically. For an API running
+outside Docker, copy `.env.example` to `.env` and use `task dev` after starting the
+local database. Do not use schema push. The update endpoint will be responsible
+for advancing `updated_at` when it is implemented.
+
+The local Docker database is exposed at `127.0.0.1:5433` to avoid conflicting
+with a PostgreSQL installation on the host. Containers use `postgres:5432`.
+
+With the database running and `DATABASE_URL` configured in `.env`, run
+`task db:studio` and open the URL printed in the terminal to inspect the database.
+Stop Studio with Ctrl+C.
+
+Keep each table in `apps/api/src/infrastructure/database/schema/` (for example,
+`activities.ts`). Drizzle Kit discovers these files through its schema glob.
+Generate migrations with a descriptive name:
+
+```sh
+task db:generate -- --name=create_activities
+```
+
+Choose a name describing the actual change, such as `add_activity_notes`. Do not
+rename published or applied migrations: Drizzle tracks them by directory name.

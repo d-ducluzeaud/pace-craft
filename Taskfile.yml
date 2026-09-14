@@ -59,18 +59,18 @@ tasks:
   test:unit:
     desc: Run unit and in-process API tests
     cmds:
-      - bun test apps/api/tests packages/contracts
+      - bun test --path-ignore-patterns "**/*.integration.test.ts" apps/api/tests apps/api/src/domain packages/contracts
 
   test:integration:
     desc: Run PostgreSQL integration tests
     deps: [stack:up]
     cmds:
-      - DATABASE_URL=postgresql://pacecraft:pacecraft@localhost:5432/pacecraft bun test apps/api/tests/database.integration.test.ts
+      - DATABASE_URL=postgresql://pacecraft:pacecraft@127.0.0.1:5433/pacecraft bun test apps/api/tests/database.integration.test.ts apps/api/src/infrastructure/database/activity.integration.test.ts
 
   test:api:
     desc: Run API tests through Fastify injection
     cmds:
-      - bun test apps/api/tests/app.test.ts
+      - bun test apps/api/tests/app.test.ts apps/api/tests/activity-routes.test.ts
 
   test:e2e:
     desc: Run the Bruno collection against Docker
@@ -83,7 +83,7 @@ tasks:
     requires:
       vars: [DATABASE_URL]
     cmds:
-      - bun run --filter @pacecraft/api db:generate
+      - bun run --filter @pacecraft/api db:generate {{.CLI_ARGS}}
 
   db:migrate:
     desc: Apply committed SQL migrations
@@ -91,6 +91,13 @@ tasks:
       vars: [DATABASE_URL]
     cmds:
       - bun run --filter @pacecraft/api db:migrate
+
+  db:studio:
+    desc: Open Drizzle Studio using the configured database
+    requires:
+      vars: [DATABASE_URL]
+    cmds:
+      - bun run --filter @pacecraft/api db:studio {{.CLI_ARGS}}
 
   openapi:generate:
     desc: Regenerate the committed OpenAPI document

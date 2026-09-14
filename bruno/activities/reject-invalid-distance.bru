@@ -1,0 +1,26 @@
+meta {
+  name: Reject negative distance
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/activities
+  body: json
+  auth: none
+}
+
+body:json {
+  { "sport": "running", "startedAt": "2026-01-01T10:00:00Z", "durationSeconds": 1800, "distanceMeters": -100 }
+}
+
+assert {
+  res.status: eq 400
+  res.body.status: eq 400
+}
+
+tests {
+  test("Returns problem details", function () {
+    expect(res.getHeader("content-type")).to.contain("application/problem+json");
+  });
+}
