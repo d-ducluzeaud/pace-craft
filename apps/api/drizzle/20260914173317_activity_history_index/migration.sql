@@ -1,0 +1,1 @@
+CREATE INDEX "activities_owner_history_idx" ON "activities" ("owner_id","started_at" DESC,"id" DESC);

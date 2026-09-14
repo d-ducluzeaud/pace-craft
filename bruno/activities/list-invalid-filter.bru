@@ -1,0 +1,16 @@
+meta {
+  name: Reject invalid history period
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{baseUrl}}/activities?period=2y
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 400
+  res.body.status: eq 400
+}

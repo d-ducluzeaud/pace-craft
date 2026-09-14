@@ -3,6 +3,7 @@ import {
   bigint,
   check,
   doublePrecision,
+  index,
   integer,
   pgTable,
   text,
@@ -29,6 +30,11 @@ export const activities = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true, precision: 3 }).notNull().defaultNow(),
   },
   (table) => [
+    index("activities_owner_history_idx").on(
+      table.ownerId,
+      table.startedAt.desc().nullsFirst(),
+      table.id.desc().nullsFirst(),
+    ),
     check("activities_sport", sql`${table.sport} in ('running', 'cycling', 'swimming')`),
     check("activities_started_in_past", sql`${table.startedAt} < ${table.createdAt}`),
     check("activities_duration", sql`${table.durationSeconds} between 1 and 9007199254740991`),

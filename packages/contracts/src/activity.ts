@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const sportSchema = z.enum(["running", "cycling", "swimming"]);
 
+export const activityParamsSchema = z.strictObject({ id: z.uuid() });
+
 export const activityBodyShape = {
   startedAt: z.iso
     .datetime({ offset: true })
@@ -102,3 +104,20 @@ export const activityResponseSchema = z
   .superRefine(validateMeasurements);
 
 export type ActivityResponse = z.infer<typeof activityResponseSchema>;
+
+const historyDateSchema = activityBodyShape.startedAt.refine(
+  (value) => !/\.\d{4}/.test(value),
+  "History bounds support at most millisecond precision.",
+);
+
+export const listActivitiesQuerySchema = z.strictObject({
+  period: z.enum(["1y", "6m", "3m", "1m", "1w", "today"]).optional(),
+  sport: sportSchema.optional(),
+  from: historyDateSchema.optional(),
+  to: historyDateSchema.optional(),
+  limit: z
+    .string()
+    .regex(/^[1-9][0-9]*$/)
+    .pipe(z.coerce.number<string>().int().max(200))
+    .optional(),
+});

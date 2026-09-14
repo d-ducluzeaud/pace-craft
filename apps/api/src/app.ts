@@ -8,6 +8,7 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from "fastify-type-provider-zod";
+import type { ActivityReader } from "./application/activities/activity-reader";
 import type { ActivityWriter } from "./application/activities/activity-writer";
 import type { ReadinessProbe } from "./application/health/readiness-probe";
 import { createActivityRoutes } from "./http/activity-routes";
@@ -18,6 +19,7 @@ export interface BuildAppOptions {
   logger?: FastifyServerOptions["logger"];
   readinessProbe: ReadinessProbe;
   activityWriter?: ActivityWriter;
+  activityReader?: ActivityReader;
   developmentOwnerId?: string;
 }
 
@@ -52,9 +54,20 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
         response.headers = {
           ...response.headers,
           Location: {
-            description: "URI of the created activity. Retrieval is a separate API capability.",
+            description: "URI for retrieving the created activity.",
             required: true,
             schema: { type: "string", example: "/activities/019f3ed0-0000-7000-8000-000000000002" },
+          },
+        };
+      }
+      const history = openapiObject.paths?.["/activities"]?.get?.responses?.["200"];
+      if (history && !("$ref" in history)) {
+        history.headers = {
+          "X-Has-More": {
+            description:
+              "True when matches were omitted. Complete traversal requires future cursor pagination; date ranges cannot separate equal timestamps.",
+            required: true,
+            schema: { type: "boolean" },
           },
         };
       }
@@ -105,6 +118,7 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
   await app.register(
     createActivityRoutes({
       writer: options.activityWriter,
+      reader: options.activityReader,
       developmentOwnerId: options.developmentOwnerId,
     }),
   );

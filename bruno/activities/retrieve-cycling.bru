@@ -1,0 +1,22 @@
+meta {
+  name: Retrieve cycling
+  type: http
+  seq: 6
+}
+
+get {
+  url: {{baseUrl}}/activities/{{cyclingActivity.id}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.sport: eq cycling
+}
+
+tests {
+  test("Returns the complete saved activity", function () {
+    expect(res.getBody()).to.deep.equal(bru.getVar("cyclingActivity"));
+  });
+}

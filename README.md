@@ -1,7 +1,7 @@
 # PaceCraft
 
 PaceCraft is a REST API for tracking running, cycling, and swimming activities. It supports manual
-activity creation with runtime validation and PostgreSQL persistence in local development.
+activity creation and owner-scoped retrieval with runtime validation and PostgreSQL persistence in local development.
 
 ## Stack
 
@@ -140,7 +140,7 @@ If npm reports a root-owned cache, repair the ownership of the npm cache outside
 Do not run an unreviewed recursive `sudo` command copied from an error message. PaceCraft itself uses
 Bun and does not require npm for installation.
 
-## Create an activity locally
+## Create and retrieve an activity locally
 
 Run `task stack:up`, then open the `bruno` directory as a collection in Bruno and
 select the **Local** environment. The **activities** folder contains POST requests
@@ -148,7 +148,11 @@ for running, cycling, swimming, and an invalid-distance example. Run the collect
 from the terminal with `task bruno` (each successful POST creates a database row).
 
 `POST /activities` returns `201`, the saved activity, and a `Location` header.
-The corresponding GET endpoint is a separate backlog item. The OpenAPI contract
+`GET /activities/:id` returns `200` with the complete saved activity. A malformed
+UUID returns `400`; a missing activity or one owned by another athlete returns
+the same `404` problem response. Optional measurements are omitted when absent.
+The Bruno collection retrieves each created sport and checks malformed and missing IDs.
+The OpenAPI contract
 is available at <http://127.0.0.1:3000/docs>.
 
 An activity must have ended by its creation time (`startedAt + durationSeconds`).
@@ -156,7 +160,7 @@ An activity must have ended by its creation time (`startedAt + durationSeconds`)
 PostgreSQL generates UUIDv7 activity IDs and creation/update timestamps. The
 `activities.owner_id` UUID column is populated from `DEV_ATHLETE_ID` in local
 server configuration. The request cannot choose the owner. This development
-identity requires `NODE_ENV=development`; without an identity, creation returns
+identity requires `NODE_ENV=development`; without an identity, creation and retrieval return
 `503`. This indicates unavailable server configuration, not rejected client credentials.
 Compose binds the API to localhost. Replace this development identity with
 session authentication before public deployment. A foreign key to users will be
@@ -184,3 +188,38 @@ task db:generate -- --name=create_activities
 
 Choose a name describing the actual change, such as `add_activity_notes`. Do not
 rename published or applied migrations: Drizzle tracks them by directory name.
+
+### Activity history
+
+`GET /activities` returns an array for the server-configured athlete, ordered by
+`startedAt DESC, id DESC`. Optional `sport` accepts `running`, `cycling`, or
+`swimming`. Dates in responses are UTC ISO timestamps; absent measurements are omitted.
+
+Choose a preset with `period=1y|6m|3m|1m|1w|today` (default `1m`). Months and years
+are calendar intervals ending at request time, clamped to the last valid day of
+the target month. A week is seven days. `today` means the UTC calendar day
+`[00:00, next 00:00)`, not the athlete's local timezone.
+
+Alternatively, supply both `from` and `to` as ISO timestamps with a timezone:
+Bounds support at most millisecond precision. `from` is inclusive and `to` exclusive, with `from < to` and a maximum span of
+366 days. Do not combine explicit dates with `period`. For example:
+
+```text
+/activities?period=3m&sport=running
+/activities?from=2026-01-01T00:00:00Z&to=2026-02-01T00:00:00Z&limit=50
+```
+
+URL-encode a positive offset's `+` as `%2B`. `limit` is a positive decimal integer,
+default 100, maximum 200. The response header `X-Has-More: true` means additional
+matches were omitted. Narrowing the date range may help, but cannot retrieve all
+results when more than the limit share one timestamp. Complete traversal requires
+the separate cursor pagination feature. The server fetches at most `limit + 1` rows. Empty results
+return `200` with `[]` and `X-Has-More: false`.
+
+Invalid or unknown filters return RFC 9457 `400` errors before storage access.
+Missing development identity or storage returns `503`; unexpected storage errors
+return a sanitized `500`. SQL always combines ownership with date and sport filters.
+The result cap bounds transfer and application memory, not PostgreSQL scan/sort
+work. The generated migration adds `(owner_id, started_at DESC, id DESC)` for
+owner-scoped range scans and ordering. Sport is a residual filter; evaluate query
+plans on representative data before adding a sport-specific index.

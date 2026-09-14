@@ -1,0 +1,25 @@
+meta {
+  name: List bounded running history
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/activities?from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&sport=running&limit=200
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("History filters sport and preserves the created activity", function () {
+    const rows = res.getBody();
+    expect(rows).to.be.an("array");
+    expect(rows.every(row => row.sport === "running")).to.equal(true);
+    expect(rows.map(row => row.id)).to.include(bru.getVar("runningActivity").id);
+    expect(res.getHeader("x-has-more")).to.be.oneOf(["true", "false"]);
+  });
+}
