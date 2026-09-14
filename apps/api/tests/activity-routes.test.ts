@@ -1,4 +1,5 @@
 import { expect, mock, test } from "bun:test";
+import type { ProblemDetails } from "@pacecraft/contracts";
 import { buildApp } from "../src/app";
 import { loadEnvironment } from "../src/config";
 import type { CreateActivityInput } from "../src/domain/activity";
@@ -134,6 +135,184 @@ test("OpenAPI documents the created resource location", async () => {
           post: {
             responses: {
               "201": { headers: { Location: { required: true, schema: { type: "string" } } } },
+            },
+          },
+        },
+      },
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test.each(["running", "cycling", "swimming"] as const)(
+  "GET returns the complete owned %s activity",
+  async (sport) => {
+    const common = {
+      id,
+      ownerId,
+      startedAt: new Date(body.startedAt),
+      durationSeconds: body.durationSeconds,
+      distanceMeters: body.distanceMeters,
+      effort: 0,
+      averageHeartRate: 140,
+      maxHeartRate: 170,
+      createdAt: new Date("2026-01-01Z"),
+      updatedAt: new Date("2026-01-02Z"),
+    };
+    const activity =
+      sport === "swimming"
+        ? { ...common, sport, averageSwolf: 42.5 }
+        : { ...common, sport, averagePower: 0, maxPower: 300.5 };
+    const findOwned = mock(async () => activity);
+    const app = await buildApp({
+      readinessProbe,
+      developmentOwnerId: ownerId,
+      activityReader: { findOwned },
+    });
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: `/activities/${id}?ownerId=spoofed`,
+        headers: { "x-owner-id": "spoofed" },
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.json()).toEqual(JSON.parse(JSON.stringify(activity)));
+      expect(findOwned).toHaveBeenCalledWith(id, ownerId);
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test.each(["not-a-uuid", "123", "019f3ed0000070008000000000000002"])(
+  "GET rejects malformed identifier %s before persistence",
+  async (invalidId) => {
+    const findOwned = mock(async () => undefined);
+    const app = await buildApp({
+      readinessProbe,
+      developmentOwnerId: ownerId,
+      activityReader: { findOwned },
+    });
+    try {
+      const response = await app.inject(`/activities/${invalidId}`);
+      expect(response.statusCode).toBe(400);
+      expect(response.headers["content-type"]).toContain("application/problem+json");
+      expect(response.json()).toMatchObject({
+        type: "about:blank",
+        status: 400,
+        instance: `/activities/${invalidId}`,
+      });
+      expect(findOwned).not.toHaveBeenCalled();
+    } finally {
+      await app.close();
+    }
+  },
+);
+
+test("GET returns a standard 404 when no owned activity exists", async () => {
+  const app = await buildApp({
+    readinessProbe,
+    developmentOwnerId: ownerId,
+    activityReader: {
+      async findOwned() {
+        return undefined;
+      },
+    },
+  });
+  try {
+    const response = await app.inject(`/activities/${id}`);
+    expect(response.statusCode).toBe(404);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json<ProblemDetails>()).toEqual({
+      type: "about:blank",
+      title: "Not Found",
+      status: 404,
+      detail: "The requested resource does not exist.",
+      instance: `/activities/${id}`,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET is unavailable without server identity despite spoofed headers", async () => {
+  const findOwned = mock(async () => undefined);
+  const app = await buildApp({ readinessProbe, activityReader: { findOwned } });
+  try {
+    const response = await app.inject({
+      url: `/activities/${id}`,
+      headers: { "x-owner-id": ownerId },
+    });
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(findOwned).not.toHaveBeenCalled();
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET reports unavailable storage", async () => {
+  const app = await buildApp({ readinessProbe, developmentOwnerId: ownerId });
+  try {
+    const response = await app.inject(`/activities/${id}`);
+    expect(response.statusCode).toBe(503);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json().status).toBe(503);
+  } finally {
+    await app.close();
+  }
+});
+
+test("GET hides persistence failure details", async () => {
+  const app = await buildApp({
+    readinessProbe,
+    developmentOwnerId: ownerId,
+    activityReader: {
+      async findOwned() {
+        throw new Error("database secret");
+      },
+    },
+  });
+  try {
+    const response = await app.inject(`/activities/${id}`);
+    expect(response.statusCode).toBe(500);
+    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.json<ProblemDetails>()).toEqual({
+      type: "about:blank",
+      title: "Internal Server Error",
+      status: 500,
+      instance: `/activities/${id}`,
+    });
+  } finally {
+    await app.close();
+  }
+});
+
+test("OpenAPI documents activity retrieval and every failure response", async () => {
+  const app = await buildApp({ readinessProbe });
+  try {
+    await app.ready();
+    expect(app.swagger()).toMatchObject({
+      paths: {
+        "/activities/{id}": {
+          get: {
+            parameters: [
+              {
+                name: "id",
+                in: "path",
+                required: true,
+                schema: { type: "string", format: "uuid" },
+              },
+            ],
+            responses: {
+              "200": { content: { "application/json": { schema: expect.any(Object) } } },
+              ...Object.fromEntries(
+                [400, 404, 500, 503].map((status) => [
+                  status,
+                  { content: { "application/problem+json": { schema: expect.any(Object) } } },
+                ]),
+              ),
             },
           },
         },

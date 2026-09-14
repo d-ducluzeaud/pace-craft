@@ -16,4 +16,6 @@ Dependencies point inward. HTTP contracts belong to `packages/contracts`; busine
 belong to the domain; database mappings belong to the persistence adapter. A port is introduced only
 when an application use case needs an external capability.
 
-The initial slice deliberately contains health probes and operational contracts only.
+Activity creation and owner-scoped retrieval use separate writer and reader ports, implemented
+by one Drizzle adapter. Retrieval filters by activity ID and owner ID in the SQL query;
+another athlete's activity is indistinguishable from a missing resource.

@@ -37,3 +37,7 @@ tests {
     expect(res.getHeader("location")).to.equal("/activities/" + activity.id);
   });
 }
+
+script:post-response {
+  bru.setVar("runningActivity", res.getBody());
+}

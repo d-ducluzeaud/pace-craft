@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const sportSchema = z.enum(["running", "cycling", "swimming"]);
 
+export const activityParamsSchema = z.strictObject({ id: z.uuid() });
+
 export const activityBodyShape = {
   startedAt: z.iso
     .datetime({ offset: true })

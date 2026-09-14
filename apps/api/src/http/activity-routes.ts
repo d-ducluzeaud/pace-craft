@@ -1,18 +1,80 @@
 import { ok as invariant } from "node:assert";
 import {
+  activityParamsSchema,
   activityResponseSchema,
   createActivityBodySchema,
   problemDetailsSchema,
 } from "@pacecraft/contracts";
 import type { FastifyPluginAsyncZod } from "fastify-type-provider-zod";
+import type { ActivityReader } from "../application/activities/activity-reader";
 import type { ActivityWriter } from "../application/activities/activity-writer";
 import { validateActivityBody } from "./validate-activity-body";
 
 export function createActivityRoutes(options: {
   writer: ActivityWriter | undefined;
+  reader: ActivityReader | undefined;
   developmentOwnerId: string | undefined;
 }): FastifyPluginAsyncZod {
   return async function activityRoutes(app) {
+    app.get(
+      "/activities/:id",
+      {
+        schema: {
+          tags: ["Activities"],
+          summary: "Retrieve one owned activity",
+          description:
+            "Local development only: ownership comes from server configuration. Missing activities and activities owned by another athlete both return 404.",
+          params: activityParamsSchema,
+          response: {
+            200: activityResponseSchema,
+            400: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
+            404: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
+            500: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
+            503: { content: { "application/problem+json": { schema: problemDetailsSchema } } },
+          },
+        },
+        onRequest: async (request, reply) => {
+          if (options.developmentOwnerId === undefined) {
+            return reply.status(503).type("application/problem+json").send({
+              type: "about:blank",
+              title: "Service Unavailable",
+              status: 503,
+              detail: "Activity retrieval is disabled until a server identity is configured.",
+              instance: request.url,
+            });
+          }
+        },
+      },
+      async (request, reply) => {
+        const ownerId = options.developmentOwnerId;
+        invariant(ownerId !== undefined, "Missing activity owner after identity check.");
+        if (options.reader === undefined) {
+          return reply.status(503).type("application/problem+json").send({
+            type: "about:blank",
+            title: "Service Unavailable",
+            status: 503,
+            detail: "Activity storage is unavailable.",
+            instance: request.url,
+          });
+        }
+        const activity = await options.reader.findOwned(request.params.id, ownerId);
+        if (activity === undefined) {
+          return reply.status(404).type("application/problem+json").send({
+            type: "about:blank",
+            title: "Not Found",
+            status: 404,
+            detail: "The requested resource does not exist.",
+            instance: request.url,
+          });
+        }
+        return reply.send({
+          ...activity,
+          startedAt: activity.startedAt.toISOString(),
+          createdAt: activity.createdAt.toISOString(),
+          updatedAt: activity.updatedAt.toISOString(),
+        });
+      },
+    );
     app.post(
       "/activities",
       {

@@ -1,0 +1,22 @@
+meta {
+  name: Retrieve swimming
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/activities/{{swimmingActivity.id}}
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.sport: eq swimming
+}
+
+tests {
+  test("Returns the complete saved activity", function () {
+    expect(res.getBody()).to.deep.equal(bru.getVar("swimmingActivity"));
+  });
+}
