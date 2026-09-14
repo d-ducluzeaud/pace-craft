@@ -59,7 +59,15 @@ one minute can hit the registration rate limit.
 
 Login, logout, and authenticated activity ownership are separate upcoming slices. Activity
 routes still use the development identity and this is not ready for public deployment.
-See [ADR 0002](docs/adr/0002-better-auth-postgresql.md) for the library decision and limitations.
+
+Better Auth 1.7.4 can return `FAILED_TO_CREATE_USER` for a concurrent email conflict. The
+route retries once after the native security checks; persistent failures return `503`.
+Remove this workaround when an upstream update passes the concurrency regression test.
+
+To update the auth schema, run `bun run --filter @pacecraft/api auth:generate`. Compare the
+candidate in `apps/api/dist/auth-schema.ts` with the maintained schema and merge changes,
+preserving the custom unique index on `lower(email)`. Then run `task db:generate` with
+`DATABASE_URL` set and review the generated SQL migration and snapshot before committing.
 
 ## Editor setup
 
@@ -165,8 +173,13 @@ workflows such as Docker, database migrations, OpenAPI, and Bruno.
 ## Architecture
 
 PaceCraft uses progressive hexagonal boundaries. Domain and application code remain framework
-independent, while Fastify and Drizzle/Bun SQL live in adapters. See
-[ADR 0001](docs/adr/0001-drizzle-bun-sql-rc.md) for the intentional release-candidate dependency.
+independent, while Fastify and Drizzle/Bun SQL live in adapters.
+
+Drizzle ORM and Kit are pinned together to `1.0.0-rc.4` for Bun SQL support. Their library
+declarations require `skipLibCheck` in the API workspace; project source remains strictly
+checked. Upgrade both together when the stable adapter passes migration and PostgreSQL
+integration tests. If the release candidate blocks required behavior, use stable
+`node-postgres` instead.
 
 ## Troubleshooting
 

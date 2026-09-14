@@ -4,7 +4,7 @@ title: "chore(db): upgrade Drizzle to v1 stable"
 labels: [dependencies, database]
 body:
   - type: markdown
-    attributes: { value: "Read ADR 0001 before starting this upgrade." }
+    attributes: { value: "Read the README Architecture section before starting this upgrade." }
   - type: checkboxes
     attributes:
       label: Acceptance criteria
@@ -13,4 +13,4 @@ body:
         - { label: "Generated SQL and snapshots were compared before replacement.", required: true }
         - { label: "Empty-database migrations and PostgreSQL integration tests pass.", required: true }
         - { label: "Transaction, concurrency, date, and JSON behavior is verified.", required: true }
-        - { label: "ADR 0001 is updated with the outcome.", required: true }
+        - { label: "The README reflects the selected versions and remaining limitations.", required: true }
