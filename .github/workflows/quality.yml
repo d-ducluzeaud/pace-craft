@@ -31,7 +31,9 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: task db:migrate
       - run: task check
-      - run: bun test apps/api/tests/database.integration.test.ts apps/api/src/infrastructure/database/activity.integration.test.ts
+      - run: bun test apps/api/tests/database.integration.test.ts apps/api/src/infrastructure/database --max-concurrency 4
+        env:
+          TEST_DATABASE_ADMIN_URL: postgresql://pacecraft:pacecraft@localhost:5432/postgres
       - run: task openapi:check
       - if: github.event_name == 'pull_request'
         run: bunx commitlint --from "${{ github.event.pull_request.base.sha }}" --to "${{ github.event.pull_request.head.sha }}" --verbose
