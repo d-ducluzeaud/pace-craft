@@ -1,5 +1,5 @@
 import { expect } from "bun:test";
-import type { ProblemDetails } from "@pacecraft/contracts";
+import type { ActivityResponse, ProblemDetails } from "@pacecraft/contracts";
 import { buildApp } from "../../app";
 import { createDrizzleActivityStore } from "./drizzle-activity-store";
 
@@ -125,6 +125,250 @@ databaseTest("GET hides Bob's activity from Alice despite spoofed ownership", ()
           expect(JSON.stringify(problem)).not.toContain(bobId);
           expect(foreign.body).not.toContain('"distanceMeters"');
         }
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await store.close();
+    }
+  }),
+);
+
+databaseTest("GET /activities returns only the current owner's activities", () => {
+  return withTestDatabase(async ({ client, databaseUrl }) => {
+    const store = createDrizzleActivityStore(databaseUrl);
+    const aliceId = crypto.randomUUID();
+    const bobId = crypto.randomUUID();
+
+    try {
+      await insertActivityFixture(client, { ownerId: bobId });
+      const aliceFirstActivity = await insertActivityFixture(client, { ownerId: aliceId });
+      const aliceSecondActivity = await insertActivityFixture(client, { ownerId: aliceId });
+
+      const app = await buildApp({
+        readinessProbe: { async check() {} },
+        activityReader: store,
+        developmentOwnerId: aliceId,
+      });
+
+      try {
+        const owned = await app.inject(
+          "/activities?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+        );
+        expect(owned.statusCode).toBe(200);
+
+        const activities = owned.json<Array<{ id: string }>>();
+        expect(activities.map((activity) => activity.id).sort()).toEqual(
+          [aliceFirstActivity.id, aliceSecondActivity.id].sort(),
+        );
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+databaseTest(
+  "GET /activities returns an empty array when only another owner has activities",
+  () => {
+    return withTestDatabase(async ({ client, databaseUrl }) => {
+      const store = createDrizzleActivityStore(databaseUrl);
+      const aliceId = crypto.randomUUID();
+      const bobId = crypto.randomUUID();
+
+      try {
+        await insertActivityFixture(client, { ownerId: bobId });
+
+        const app = await buildApp({
+          readinessProbe: { async check() {} },
+          activityReader: store,
+          developmentOwnerId: aliceId,
+        });
+
+        try {
+          const response = await app.inject(
+            "/activities?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+          );
+          expect(response.statusCode).toBe(200);
+          const body = response.json<unknown>();
+          expect(body).toEqual([]);
+        } finally {
+          await app.close();
+        }
+      } finally {
+        await store.close();
+      }
+    });
+  },
+);
+
+databaseTest("GET /activities returns newest activities first", () => {
+  return withTestDatabase(async ({ client, databaseUrl }) => {
+    const store = createDrizzleActivityStore(databaseUrl);
+    const aliceId = crypto.randomUUID();
+
+    try {
+      const olderActivity = await insertActivityFixture(client, {
+        ownerId: aliceId,
+        startedAt: new Date("2020-01-01T10:00:00Z"),
+      });
+      const newerActivity = await insertActivityFixture(client, {
+        ownerId: aliceId,
+        startedAt: new Date("2020-01-02T10:00:00Z"),
+      });
+
+      const app = await buildApp({
+        readinessProbe: { async check() {} },
+        activityReader: store,
+        developmentOwnerId: aliceId,
+      });
+
+      try {
+        const response = await app.inject(
+          "/activities?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+        );
+        expect(response.statusCode).toBe(200);
+        const activities = response.json<ActivityResponse[]>();
+
+        expect(activities.map((activity) => activity.id)).toEqual([
+          newerActivity.id,
+          olderActivity.id,
+        ]);
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await store.close();
+    }
+  });
+});
+
+databaseTest("GET /activities orders equal start dates by descending id", () =>
+  withTestDatabase(async ({ client, databaseUrl }) => {
+    const store = createDrizzleActivityStore(databaseUrl);
+    const aliceId = crypto.randomUUID();
+    const startedAt = new Date("2020-01-01T10:00:00Z");
+
+    try {
+      const firstActivity = await insertActivityFixture(client, { ownerId: aliceId, startedAt });
+      const secondActivity = await insertActivityFixture(client, { ownerId: aliceId, startedAt });
+      const expectedIds = [firstActivity.id, secondActivity.id].sort().reverse();
+      const app = await buildApp({
+        readinessProbe: { async check() {} },
+        activityReader: store,
+        developmentOwnerId: aliceId,
+      });
+
+      try {
+        const response = await app.inject(
+          "/activities?from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+        );
+        expect(response.statusCode).toBe(200);
+        const activities = response.json<ActivityResponse[]>();
+        expect(activities.map((activity) => activity.id)).toEqual(expectedIds);
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await store.close();
+    }
+  }),
+);
+
+databaseTest("GET /activities filters by sport while preserving ownership", () =>
+  withTestDatabase(async ({ client, databaseUrl }) => {
+    const store = createDrizzleActivityStore(databaseUrl);
+    const aliceId = crypto.randomUUID();
+    const bobId = crypto.randomUUID();
+
+    try {
+      const aliceRunning = await insertActivityFixture(client, {
+        ownerId: aliceId,
+        sport: "running",
+      });
+      await insertActivityFixture(client, { ownerId: aliceId, sport: "cycling" });
+      await insertActivityFixture(client, { ownerId: bobId, sport: "running" });
+      const app = await buildApp({
+        readinessProbe: { async check() {} },
+        activityReader: store,
+        developmentOwnerId: aliceId,
+      });
+
+      try {
+        const response = await app.inject(
+          "/activities?sport=running&from=2020-01-01T00:00:00Z&to=2020-02-01T00:00:00Z",
+        );
+        expect(response.statusCode).toBe(200);
+        const activities = response.json<ActivityResponse[]>();
+        expect(activities.map((activity) => activity.id)).toEqual([aliceRunning.id]);
+      } finally {
+        await app.close();
+      }
+    } finally {
+      await store.close();
+    }
+  }),
+);
+
+databaseTest("history combines sports, offset bounds, stable order and result limits", () =>
+  withTestDatabase(async ({ client, databaseUrl }) => {
+    const store = createDrizzleActivityStore(databaseUrl);
+    const ownerId = crypto.randomUUID();
+    const from = new Date("2020-01-01T00:00:00Z");
+    const to = new Date("2020-01-02T00:00:00Z");
+    try {
+      const included = [];
+      for (const sport of ["running", "cycling", "swimming"] as const) {
+        const activity = await insertActivityFixture(client, { ownerId, sport, startedAt: from });
+        included.push({ ...activity, sport });
+        await insertActivityFixture(client, { ownerId, sport, startedAt: to });
+        await insertActivityFixture(client, {
+          ownerId,
+          sport,
+          startedAt: new Date(from.getTime() - 1),
+        });
+        await insertActivityFixture(client, {
+          ownerId: crypto.randomUUID(),
+          sport,
+          startedAt: from,
+        });
+      }
+      const app = await buildApp({
+        readinessProbe: { async check() {} },
+        activityReader: store,
+        developmentOwnerId: ownerId,
+      });
+      try {
+        const query = new URLSearchParams({
+          from: "2020-01-01T02:00:00+02:00",
+          to: to.toISOString(),
+        });
+        for (const activity of included) {
+          const response = await app.inject(`/activities?${query}&sport=${activity.sport}`);
+          expect(response.statusCode).toBe(200);
+          expect(response.json<ActivityResponse[]>().map((row) => row.id)).toEqual([activity.id]);
+          expect(response.headers["x-has-more"]).toBe("false");
+        }
+        const expected = included
+          .map((row) => row.id)
+          .sort()
+          .reverse();
+        const limited = await app.inject(`/activities?${query}&limit=2`);
+        expect(limited.statusCode).toBe(200);
+        expect(limited.json<ActivityResponse[]>().map((row) => row.id)).toEqual(
+          expected.slice(0, 2),
+        );
+        expect(limited.headers["x-has-more"]).toBe("true");
+        const exact = await app.inject(`/activities?${query}&limit=3`);
+        expect(exact.json<ActivityResponse[]>().map((row) => row.id)).toEqual(expected);
+        expect(exact.headers["x-has-more"]).toBe("false");
+        const empty = await app.inject(
+          "/activities?from=2021-01-01T00:00:00Z&to=2021-01-02T00:00:00Z&sport=running",
+        );
+        expect(empty.statusCode).toBe(200);
+        expect(empty.json<unknown>()).toEqual([]);
       } finally {
         await app.close();
       }

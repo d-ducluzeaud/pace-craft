@@ -4,6 +4,7 @@ export {
   activityResponseSchema,
   type CreateActivityBody,
   createActivityBodySchema,
+  listActivitiesQuerySchema,
   sportSchema,
 } from "./activity";
 export { type HealthStatus, healthStatusSchema } from "./health";

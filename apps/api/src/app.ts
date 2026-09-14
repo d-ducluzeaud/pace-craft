@@ -60,6 +60,17 @@ export async function buildApp(options: BuildAppOptions): Promise<FastifyInstanc
           },
         };
       }
+      const history = openapiObject.paths?.["/activities"]?.get?.responses?.["200"];
+      if (history && !("$ref" in history)) {
+        history.headers = {
+          "X-Has-More": {
+            description:
+              "True when matches were omitted. Complete traversal requires future cursor pagination; date ranges cannot separate equal timestamps.",
+            required: true,
+            schema: { type: "boolean" },
+          },
+        };
+      }
       return openapiObject;
     },
   });

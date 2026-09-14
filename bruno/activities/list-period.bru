@@ -1,0 +1,23 @@
+meta {
+  name: List current month
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/activities?period=1m
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Returns a bounded array and truncation signal", function () {
+    expect(res.getBody()).to.be.an("array");
+    expect(res.getBody().length).to.be.at.most(100);
+    expect(res.getHeader("x-has-more")).to.be.oneOf(["true", "false"]);
+  });
+}
