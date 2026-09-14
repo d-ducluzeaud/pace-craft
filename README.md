@@ -27,6 +27,48 @@ task stack:up
 
 The API is available at `http://127.0.0.1:3000`, with documentation at `/docs`.
 
+## Athlete registration
+
+Set both values in your untracked `.env` to enable registration:
+
+```dotenv
+BETTER_AUTH_URL=http://127.0.0.1:3000
+BETTER_AUTH_SECRET=<generate with openssl rand -base64 32>
+```
+
+Use a random secret of at least 32 characters, shared across API instances. Use an HTTPS
+origin in production. Run generated migrations before starting the API; `task stack:up`
+does this automatically. With both settings empty, registration returns `503`.
+
+`POST /api/auth/sign-up/email` accepts `name` (1–100 characters after trimming), `email`
+(at most 254 characters), and `password` (8–128 characters, never trimmed). Unknown fields
+are rejected. Better Auth normalizes email case and PostgreSQL enforces uniqueness.
+New and existing emails both return `200` with `token: null`; an existing email gets a
+synthetic user. The response is not proof of account creation and sets no session cookie.
+Failures use `application/problem+json`.
+
+Registration permits five valid requests per client IP per minute, shared in PostgreSQL.
+Excess requests return `429` and `Retry-After`. Client-supplied IP headers are overwritten
+with Fastify's socket-derived IP; reverse-proxy trust needs explicit configuration before
+deploying behind a proxy. Better Auth origin/CSRF checks remain enabled. Its raw error
+arguments are excluded from logs because database errors may contain credential hashes.
+
+Run `task test:integration` for HTTP, concurrency, and storage checks. After enabling
+registration locally, `task test:e2e` also runs the Bruno auth requests. Repeated runs within
+one minute can hit the registration rate limit.
+
+Login, logout, and authenticated activity ownership are separate upcoming slices. Activity
+routes still use the development identity and this is not ready for public deployment.
+
+Better Auth 1.7.4 can return `FAILED_TO_CREATE_USER` for a concurrent email conflict. The
+route retries once after the native security checks; persistent failures return `503`.
+Remove this workaround when an upstream update passes the concurrency regression test.
+
+To update the auth schema, run `bun run --filter @pacecraft/api auth:generate`. Compare the
+candidate in `apps/api/dist/auth-schema.ts` with the maintained schema and merge changes,
+preserving the custom unique index on `lower(email)`. Then run `task db:generate` with
+`DATABASE_URL` set and review the generated SQL migration and snapshot before committing.
+
 ## Editor setup
 
 Install [Zed](https://zed.dev/download) or [VS Code](https://code.visualstudio.com/download)
@@ -131,8 +173,13 @@ workflows such as Docker, database migrations, OpenAPI, and Bruno.
 ## Architecture
 
 PaceCraft uses progressive hexagonal boundaries. Domain and application code remain framework
-independent, while Fastify and Drizzle/Bun SQL live in adapters. See
-[ADR 0001](docs/adr/0001-drizzle-bun-sql-rc.md) for the intentional release-candidate dependency.
+independent, while Fastify and Drizzle/Bun SQL live in adapters.
+
+Drizzle ORM and Kit are pinned together to `1.0.0-rc.4` for Bun SQL support. Their library
+declarations require `skipLibCheck` in the API workspace; project source remains strictly
+checked. Upgrade both together when the stable adapter passes migration and PostgreSQL
+integration tests. If the release candidate blocks required behavior, use stable
+`node-postgres` instead.
 
 ## Troubleshooting
 

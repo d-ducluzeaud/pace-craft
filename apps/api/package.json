@@ -4,6 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "auth:generate": "mkdir -p dist && bunx --bun auth@1.7.4 generate --config ./scripts/auth-schema.config.ts --output ./dist/auth-schema.ts --yes",
     "build": "bun build ./src/index.ts --outdir ./dist --target bun",
     "db:generate": "bunx --bun drizzle-kit generate",
     "db:migrate": "bunx --bun drizzle-kit migrate",
@@ -15,9 +16,11 @@
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {
+    "@better-auth/drizzle-adapter": "1.7.4",
     "@fastify/swagger": "9.8.1",
     "@fastify/swagger-ui": "6.1.1",
     "@pacecraft/contracts": "workspace:*",
+    "better-auth": "1.7.4",
     "drizzle-orm": "1.0.0-rc.4",
     "fastify": "5.12.4",
     "fastify-type-provider-zod": "7.0.0",

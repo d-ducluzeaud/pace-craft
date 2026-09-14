@@ -1,0 +1,32 @@
+meta {
+  name: Repeated registration does not disclose the account
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/auth/sign-up/email
+  body: json
+  auth: none
+}
+
+headers {
+  Origin: {{baseUrl}}
+}
+
+body:json {
+  { "name": "Another name", "email": "{{registrationEmail}}", "password": "test-password-9fcb57e2" }
+}
+
+assert {
+  res.status: eq 200
+}
+
+tests {
+  test("Returns a synthetic user without authenticating", function () {
+    expect(res.getBody().token).to.equal(null);
+    expect(res.getBody().user.name).to.equal("Another name");
+    expect(res.getBody().user.id).not.to.equal(bru.getVar("registeredUserId"));
+    expect(res.getHeader("set-cookie")).to.equal(undefined);
+  });
+}

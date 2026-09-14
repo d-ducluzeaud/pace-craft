@@ -19,7 +19,8 @@ WORKDIR /app
 COPY package.json bun.lock ./
 COPY apps/api/package.json apps/api/package.json
 COPY packages/contracts/package.json packages/contracts/package.json
-RUN bun install --frozen-lockfile --production
+# The API does not use optional build binaries (esbuild is pulled in by Drizzle Kit).
+RUN bun install --frozen-lockfile --production --omit=optional
 
 FROM base AS runtime
 WORKDIR /app
