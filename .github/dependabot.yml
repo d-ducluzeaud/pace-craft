@@ -3,6 +3,11 @@ updates:
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly }
+    ignore:
+      - dependency-name: drizzle-orm
+        versions: ["1.0.0-rc.5-5935859"]
+      - dependency-name: drizzle-kit
+        versions: ["1.0.0-rc.5-5935859"]
     groups:
       bun: { patterns: ["@types/bun"] }
       fastify: { patterns: ["fastify", "@fastify/*", "fastify-type-provider-zod"] }
@@ -14,3 +19,5 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      codeql: { patterns: ["github/codeql-action/*"] }
