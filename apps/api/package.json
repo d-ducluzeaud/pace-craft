@@ -16,11 +16,11 @@
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.7.4",
+    "@better-auth/drizzle-adapter": "1.7.5",
     "@fastify/swagger": "9.8.1",
     "@fastify/swagger-ui": "6.1.1",
     "@pacecraft/contracts": "workspace:*",
-    "better-auth": "1.7.4",
+    "better-auth": "1.7.5",
     "drizzle-orm": "1.0.0-rc.4",
     "fastify": "5.12.4",
     "fastify-type-provider-zod": "7.0.0",
