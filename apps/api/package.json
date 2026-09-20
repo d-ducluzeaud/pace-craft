@@ -16,7 +16,7 @@
     "typecheck": "tsc --project tsconfig.json"
   },
   "dependencies": {
-    "@better-auth/drizzle-adapter": "1.7.4",
+    "@better-auth/drizzle-adapter": "1.7.5",
     "@fastify/swagger": "9.8.1",
     "@fastify/swagger-ui": "6.1.1",
     "@pacecraft/contracts": "workspace:*",
